@@ -1,0 +1,62 @@
+# Gradle
+.gradle/
+build/
+**/build/
+
+# Local configuration
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Android Studio generated
+captures/
+.externalNativeBuild/
+.cxx/
+
+# APK / AAB
+*.apk
+*.aab
+
+# Signing / keystore
+*.jks
+*.keystore
+
+# Native build
+obj/
+libs/
+
+# Kotlin
+.kotlin/
+
+# Log files
+*.log
+
+# Mac
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*~
+
+# Firebase / Google services
+# 필요에 따라 포함 여부 결정
+# google-services.json
+
+# Secrets
+secrets.properties
+*.properties.local
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/

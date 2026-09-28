@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">워치 나침반</string>
+    <string name="target_label">테스트 목표 · 북동 45°</string>
+    <string name="heading_degrees">%1$d°</string>
+    <string name="waiting">센서 대기 중</string>
+    <string name="missing_sensor">방향 센서 없음</string>
+    <string name="sensor_failed">센서 시작 실패</string>
+    <string name="accuracy_low">자기장 간섭 확인</string>
+    <string name="sensor_active">방향 센서 작동 중</string>
+    <string name="arrow_description">자기 북쪽 기준 시계방향 45도인 북동쪽 목표 방향</string>
+</resources>
