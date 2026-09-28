@@ -1,7 +1,8 @@
 <resources>
     <string name="app_name">워치 나침반</string>
     <string name="target_label">테스트 목표 · 북동 45°</string>
-    <string name="heading_degrees">%1$d°</string>
+    <string name="level_ready">수평이 맞아요</string>
+    <string name="level_hint">원을 가운데 맞춰주세요</string>
     <string name="waiting">센서 대기 중</string>
     <string name="missing_sensor">방향 센서 없음</string>
     <string name="sensor_failed">센서 시작 실패</string>

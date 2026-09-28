@@ -18,6 +18,10 @@ class HeadingTracker(context: Context, private val displayRotation: () -> Int) :
     private val matrix = FloatArray(9)
     private val adjusted = FloatArray(9)
     private val orientation = FloatArray(3)
+    private val levelIndicator = LevelIndicator()
+
+    internal var level by mutableStateOf<LevelReading?>(null)
+        private set
 
     var heading by mutableStateOf<Float?>(null)
         private set
@@ -27,6 +31,8 @@ class HeadingTracker(context: Context, private val displayRotation: () -> Int) :
     // 이전 방향을 지우고 새 센서 이벤트를 기다린다.
     fun start() {
         heading = null
+        level = null
+        levelIndicator.reset()
         status = when {
             sensor == null -> R.string.missing_sensor
             !manager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_UI) -> R.string.sensor_failed
@@ -47,6 +53,7 @@ class HeadingTracker(context: Context, private val displayRotation: () -> Int) :
         }
         SensorManager.remapCoordinateSystem(matrix, axes.first, axes.second, adjusted)
         SensorManager.getOrientation(adjusted, orientation)
+        level = levelIndicator.update(adjusted[6], adjusted[7], adjusted[8], event.timestamp)
         heading = normalizedDegrees(Math.toDegrees(orientation[0].toDouble()).toFloat())
         updateAccuracy(event.accuracy)
     }

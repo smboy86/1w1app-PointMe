@@ -6,17 +6,22 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
+import kotlin.math.acos
+import kotlin.math.sqrt
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -40,36 +45,58 @@ class MainActivity : ComponentActivity() {
     override fun onPause() { tracker.stop(); super.onPause() }
 }
 
-// 테스트 목표는 자기 북쪽에서 시계방향 45°인 북동쪽이며, 숫자는 현재 워치 방위각이다.
+// 꼬리 원은 화면 중심에 고정하고 화살표만 회전하며 수평계는 화면 좌표로 움직인다.
 @Composable
 private fun CompassScreen(tracker: HeadingTracker) {
     val heading = tracker.heading
-    val arrowDescription = stringResource(R.string.arrow_description)
-    Column(
-        modifier = Modifier.fillMaxSize().background(Color.Black).padding(22.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
-    ) {
-        Text(stringResource(R.string.target_label), fontSize = 12.sp, color = Color(0xFFACB8C1))
-        Canvas(
-            Modifier.size(64.dp)
-                .graphicsLayer { rotationZ = 45f - (heading ?: 0f); alpha = if (heading == null) 0.2f else 1f }
-                .semantics { contentDescription = arrowDescription },
-        ) {
-            drawPath(Path().apply {
-                moveTo(size.width * 0.5f, 0f)
-                lineTo(size.width * 0.86f, size.height * 0.9f)
-                lineTo(size.width * 0.5f, size.height * 0.7f)
-                lineTo(size.width * 0.14f, size.height * 0.9f)
-                close()
-            }, Color(0xFF6DE1D2))
+    val level = tracker.level
+    val levelText = stringResource(when {
+        level == null -> R.string.waiting
+        level.isLevel -> R.string.level_ready
+        else -> R.string.level_hint
+    })
+    val description = stringResource(R.string.arrow_description) + ", " + levelText
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        Canvas(Modifier.fillMaxSize().semantics { contentDescription = description }) {
+            val unit = size.minDimension
+            val radius = unit * 0.08f
+            val shaft = unit * 0.015f
+            val neck = -sqrt(radius * radius - shaft * shaft)
+            val arcAngle = Math.toDegrees(acos((shaft / radius).toDouble())).toFloat()
+            val arrowColor = Color(0xFF6DE1D2).copy(alpha = if (heading == null) 0.25f else 1f)
+            rotate(45f - (heading ?: 0f), pivot = center) {
+                translate(center.x, center.y) {
+                    val path = Path().apply {
+                        moveTo(0f, -unit * 0.32f)
+                        lineTo(unit * 0.105f, -unit * 0.15f)
+                        lineTo(shaft, -unit * 0.19f)
+                        lineTo(shaft, neck)
+                        arcTo(Rect(-radius, -radius, radius, radius), -arcAngle,
+                            180f + 2f * arcAngle, false)
+                        lineTo(-shaft, -unit * 0.19f)
+                        lineTo(-unit * 0.105f, -unit * 0.15f)
+                        close()
+                    }
+                    drawPath(path, arrowColor, style = Stroke(width = unit * 0.012f, join = StrokeJoin.Round))
+                }
+            }
+            // 수평계는 방위각과 독립적으로 화면의 높은 쪽을 향해 움직인다.
+            level?.let {
+                val bubbleCenter = center + Offset(it.x, it.y) * (unit * 0.18f)
+                val bubbleColor = if (it.isLevel) Color(0xFFB3A0FF) else Color(0xFFFFBE73)
+                drawCircle(bubbleColor.copy(alpha = 0.15f), radius * 0.8f, bubbleCenter)
+                drawCircle(bubbleColor, radius * 0.8f, bubbleCenter, style = Stroke(unit * 0.008f))
+            }
         }
-        Text(
-            heading?.let { stringResource(R.string.heading_degrees, it.toInt()) } ?: "—",
-            fontSize = 26.sp,
-            color = Color.White,
-        )
-        Text(stringResource(tracker.status), fontSize = 10.sp, textAlign = TextAlign.Center,
-            color = Color(0xFFACB8C1))
+        Text(stringResource(R.string.target_label), fontSize = 11.sp, color = Color(0xFFACB8C1),
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 22.dp))
+        Text(levelText, fontSize = 12.sp, textAlign = TextAlign.Center,
+            color = if (level?.isLevel == true) Color(0xFFB3A0FF) else Color(0xFFACB8C1),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 34.dp))
+        if (tracker.status != R.string.sensor_active) {
+            Text(stringResource(tracker.status), fontSize = 10.sp, textAlign = TextAlign.Center,
+                color = Color(0xFFFFBE73),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 19.dp))
+        }
     }
 }
