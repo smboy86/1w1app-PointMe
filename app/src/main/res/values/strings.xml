@@ -1,6 +1,16 @@
 <resources>
     <string name="app_name">워치 나침반</string>
-    <string name="target_label">테스트 목표 · 북동 45°</string>
+    <string name="distance_meters">%1$,d m</string>
+    <string name="gps_accuracy">GPS 추정 반경 %1$d m</string>
+    <string name="gps_age">%1$d초 전 측정</string>
+    <string name="gps_stale">%1$d초 전 · 갱신 대기</string>
+    <string name="gps_waiting">GPS 수신 중</string>
+    <string name="gps_active">GPS 수신 중</string>
+    <string name="gps_disabled">위치를 켜주세요</string>
+    <string name="gps_unavailable">GPS 사용 불가</string>
+    <string name="location_permission">정확한 위치 권한 필요</string>
+    <string name="location_settings">위치 설정</string>
+    <string name="within_accuracy">목표 근처 · 방향 불확실</string>
     <string name="level_ready">수평이 맞아요</string>
     <string name="level_hint">원을 가운데 맞춰주세요</string>
     <string name="waiting">센서 대기 중</string>
@@ -8,5 +18,9 @@
     <string name="sensor_failed">센서 시작 실패</string>
     <string name="accuracy_low">자기장 간섭 확인</string>
     <string name="sensor_active">방향 센서 작동 중</string>
-    <string name="arrow_description">자기 북쪽 기준 시계방향 45도인 북동쪽 목표 방향</string>
+    <string name="arrow_description">%1$s 목표 방향</string>
+    <string name="choose_target">%1$s · 변경</string>
+    <string name="test_targets">테스트 좌표 선택</string>
+    <string name="target_selected">선택됨</string>
+    <string name="back_to_compass">나침반으로</string>
 </resources>
