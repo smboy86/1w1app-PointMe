@@ -10,6 +10,5 @@ class DestinationTest {
             assertThrows(IllegalArgumentException::class.java) { Destination("수신 목표", lat, lon) }
         }
         assertEquals(90.0, Destination("경계", 90.0, 180.0).latitude, 0.0)
-        assertEquals(3, testDestinations.distinct().size)
     }
 }

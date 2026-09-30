@@ -5,18 +5,28 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.GeomagneticField
 import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
+import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 
-// 선택한 목적지까지의 GPS 직선거리와 진북 기준 방위각을 계산한다.
-internal class LocationTracker(private val context: Context) : LocationListener {
-    private val manager = context.getSystemService(LocationManager::class.java)
-    var destination by mutableStateOf(testDestinations.first())
+// Wear OS의 통합 위치 공급자를 통해 워치 GPS 및 사용 가능한 위치 소스를 요청한다.
+internal class LocationTracker(context: Context) {
+    private val appContext = context.applicationContext
+    private val client = LocationServices.getFusedLocationProviderClient(appContext)
+    private val handler = Handler(Looper.getMainLooper())
+    private var listening = false
+    private val noFixTimeout = Runnable {
+        if (listening && fix == null) status = R.string.gps_no_signal
+    }
+    var destination by mutableStateOf<Destination?>(null)
         private set
     private var lastLocation: Location? = null
     var fix by mutableStateOf<TargetFix?>(null)
@@ -24,62 +34,77 @@ internal class LocationTracker(private val context: Context) : LocationListener 
     var status by mutableIntStateOf(R.string.gps_waiting)
         private set
 
-    fun hasPermission() = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    private val callback = object : LocationCallback() {
+        override fun onLocationResult(result: LocationResult) {
+            result.locations.forEach(::acceptLocation)
+        }
 
-    // 향후 휴대폰 수신도 이 함수로 연결한다. 목표 변경은 GPS 측정 시각을 갱신하지 않는다.
-    fun updateDestination(value: Destination) {
-        destination = value
-        fix = lastLocation?.let { calculateFix(it) }
+        override fun onLocationAvailability(availability: com.google.android.gms.location.LocationAvailability) {
+            if (fix == null) status = if (availability.isLocationAvailable) R.string.gps_waiting else R.string.gps_no_signal
+        }
     }
 
-    // 캐시 위치는 쓰지 않고 화면을 연 뒤 받은 GPS 위치만 사용한다.
+    fun hasPermission() = appContext.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+    // 목표 변경은 GPS 측정 시각을 갱신하지 않는다.
+    fun updateDestination(value: Destination) {
+        destination = value
+        fix = lastLocation?.let { calculateFix(it, value) }
+    }
+
+    fun clearDestination() {
+        stop()
+        destination = null
+        lastLocation = null
+        fix = null
+    }
+
     fun start() {
+        if (listening) return
         stop()
         fix = null
         lastLocation = null
         if (!hasPermission()) { status = R.string.location_permission; return }
-        if (!manager.allProviders.contains(LocationManager.GPS_PROVIDER)) {
-            status = R.string.gps_unavailable
-            return
-        }
+        status = R.string.gps_waiting
+        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1_000L)
+            .setMinUpdateIntervalMillis(1_000L)
+            .build()
         try {
-            status = if (manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) R.string.gps_waiting else R.string.gps_disabled
-            manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, this, Looper.getMainLooper())
+            client.requestLocationUpdates(request, callback, Looper.getMainLooper())
+                .addOnFailureListener { if (listening) status = R.string.gps_unavailable }
+            listening = true
+            handler.postDelayed(noFixTimeout, 20_000L)
         } catch (_: SecurityException) {
             status = R.string.location_permission
-        } catch (_: IllegalArgumentException) {
-            status = R.string.gps_unavailable
         }
     }
 
-    fun stop() { manager.removeUpdates(this) }
+    fun stop() {
+        handler.removeCallbacks(noFixTimeout)
+        if (listening) client.removeLocationUpdates(callback)
+        listening = false
+    }
 
-    override fun onLocationChanged(location: Location) {
+    private fun acceptLocation(location: Location) {
+        val target = destination ?: return
         if (!location.latitude.isFinite() || location.latitude !in -90.0..90.0 ||
             !location.longitude.isFinite() || location.longitude !in -180.0..180.0 ||
-            !location.hasAccuracy() || !location.accuracy.isFinite() || location.accuracy <= 0f) return
-        if (location.elapsedRealtimeNanos <= (fix?.measuredAtNanos ?: 0L)) return
+            !location.hasAccuracy() || !location.accuracy.isFinite() || location.accuracy <= 0f ||
+            location.elapsedRealtimeNanos <= (fix?.measuredAtNanos ?: 0L)) return
         lastLocation = Location(location)
-        fix = calculateFix(location)
+        fix = calculateFix(location, target)
+        handler.removeCallbacks(noFixTimeout)
         status = R.string.gps_active
     }
 
-    private fun calculateFix(location: Location): TargetFix {
+    private fun calculateFix(location: Location, destination: Destination): TargetFix {
         val target = Location("target").apply {
             latitude = destination.latitude
             longitude = destination.longitude
         }
         val declination = GeomagneticField(location.latitude.toFloat(), location.longitude.toFloat(),
             (if (location.hasAltitude()) location.altitude else 0.0).toFloat(), location.time).declination
-        return TargetFix(location.distanceTo(target), location.accuracy,
-            location.bearingTo(target), declination, location.elapsedRealtimeNanos)
+        return TargetFix(location.distanceTo(target), location.accuracy, location.bearingTo(target),
+            declination, location.elapsedRealtimeNanos)
     }
-
-    override fun onProviderDisabled(provider: String) {
-        fix = null
-        lastLocation = null
-        status = R.string.gps_disabled
-    }
-
-    override fun onProviderEnabled(provider: String) { status = R.string.gps_waiting }
 }
